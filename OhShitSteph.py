@@ -320,9 +320,10 @@ def showCardsLeft(player):
     global cardsLeft
     c = 0
     for i in Player.cards(player):
-        cardsLeft.append(Radiobutton(frame5, image = f"{i.photoImage()}", value=c, indicator=0, height = 200, width = 150, variable = cardPicked, command = getCard))
+        cardsLeft.append(Radiobutton(frame5, image = f"{i.photoImage()}", value=c, indicator=0, height = 200, width = 150, variable = cardPicked))
         cardsLeft[c].grid(row=4, column=c+1, sticky=(N, W, E, S))
         c += 1
+    
 
 #get the card selected by the player
 def getCard(*args):
@@ -486,6 +487,9 @@ for child in frame4.winfo_children(): child.grid_configure(padx=5, pady=5, stick
 
 #Frame5: Pick cards
 frame5 = ttk.Frame(root, padding = "3 3 12 12")
+# Create button to press
+enter5 = ttk.Button(frame5, text = "Pick this card!", command = getCard)
+enter5.grid(row = 5, column = 0)
 # Create the widgets for screen 5:
 for child in frame5.winfo_children(): child.grid_configure(padx=5, pady=5, sticky = (N, W, E, S))
 
