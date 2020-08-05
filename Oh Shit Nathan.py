@@ -8,28 +8,14 @@ class Card():
     #Initialize itself with a value and a photoimage
     def __init__(self, num):
         self.value = num%13
-        if self.value < 9:
-            name = str(self.value + 2)
-        elif self.value == 9:
-            name = "Jack"
-        elif self.value == 10:
-            name = "Queen"
-        elif self.value == 11:
-            name = "King"
-        else:
-            name = "Ace"
-        if num < 13:
-            self.suit = "Hearts"
-        elif num < 26:
-            self.suit = "Diamonds"
-        elif num < 39:
-            self.suit = "Clubs"
-        else:
-            self.suit = "Spades"
-        self.photo = ImageTk.PhotoImage(Image.open(name + " " + self.suit + ".jpg"))
-
+        self.suit = num%4
+        suits = ["Diamonds", "Clubs", "Hearts", "Spades"]
+        nums = ["2", "3", "4", "5", "6", "7", "8", "9", "10", "Jack", "Queen", "King", "Ace"]
+        img = Image.open(nums[self.value] + " " + suits[self.suit] + ".jpg")
+        self.image = ImageTk.PhotoImage(img.resize((round(img.size[0] * .7), round(img.size[1] * .7))))
+        
     def photoImage(self):
-        return self.photo
+        return self.image
 
     def value(self):
         return self.value
@@ -43,6 +29,10 @@ class Player():
         self.cards = []
         self.point = 0
         self.guess = 0
+        self.score = 0
+        self.picked = Card(0)
+        self.pickedCard = False
+        self.wins = 0
 
     def addCard(self, card):
         self.cards.append(card)
@@ -51,6 +41,12 @@ class Player():
         self.cards.pop(i)
 
     def guessWin(self, guess):
+        pass
+
+    def numWins(self, wins):
+        pass
+
+    def pickCard(self, picked):
         pass
 
     def guess(self):
@@ -62,12 +58,57 @@ class Player():
     def cards(self):
         return self.cards
 
+    def score(self):
+        return self.score
+
+    def picked(self):
+        return self.picked
+
+    def hasPicked(self):
+        return self.pickedCard
+
+    def resetPickedCard(self):
+        self.pickedCard = False
+
+    def wins(self):
+        return self.wins
+
+    def addScore(self, points):
+        self.score += points
+
+    def addWin(self):
+        self.wins += 1
+
+    def resetWin(self):
+        self.wins = 0
+
+    def sortCardsHighFirst(self, trump):
+        for c in range(len(self.cards)-1):
+            maximum = c
+            for i in range(c+1, len(self.cards)):
+                if Card.suit(self.cards[i]) == Card.suit(trump):
+                    if Card.suit(self.cards[maximum]) == Card.suit(trump):
+                        if Card.value(self.cards[i]) > Card.value(self.cards[maximum]):
+                            maximum = i
+                    else:
+                        maximum = i
+                elif Card.suit(self.cards[maximum]) != Card.suit(trump):
+                    if Card.suit(self.cards[i]) > Card.suit(self.cards[maximum]):
+                        maximum = i
+                    elif Card.suit(self.cards[i]) == Card.suit(self.cards[maximum]) and Card.value(self.cards[i]) > Card.value(self.cards[maximum]):
+                        maximum = i
+            self.cards[maximum], self.cards[c] = self.cards[c], self.cards[maximum]
+
 class HumanPlayer(Player):
     def dealCards(self, cards):
         self.cards = cards
 
     def guessWin(self, guess):
         self.guess = guess
+
+    def pickCard(self, card):
+        self.picked = card
+        self.pickedCard = True
 
 def checkNumPlayers(*args):
     global numPlayInt
@@ -92,27 +133,31 @@ def getPlayerNames(*args):
     if getName.get() != '':
         global counterGetName
         playerNames.append(getName.get())
-        if counterGetName == int(numPlayers.get())-1:
-            root.bind('<Return>', afterSecondScreen)
-            Enter2["command"] = afterSecondScreen
-        #clear the entry box
-        nameEntry.delete(0, "end")
-        counterGetName += 1
-        nameLabel.configure(text=f"What's your name, player {counterGetName}?")
+        if counterGetName == int(numPlayers.get()):
+            afterSecondScreen()
+        else:
+            #clear the entry box
+            nameEntry.delete(0, "end")
+            counterGetName += 1
+            nameLabel.configure(text=f"What's your name, player {counterGetName}?")
 
 def makePlayers(*args):
     for name in playerNames:
         players.append(HumanPlayer(name))
 
 def afterSecondScreen(*args):
-    # Add Last Name
-    playerNames.append(getName.get())
     # Put cursor into textbox for entry
     winEntry.focus()
     # Create players with player names
     makePlayers()
+    # Set round number
+    global roundNum
+    roundNum = int(52/len(players))
+    if 52%len(players) == 0:
+        roundNum -= 1
+    global prevStartPlayer
     # Set up who is going to be first at the start of the game
-    curPlayer = random.randint(0,len(players)-1)
+    prevStartPlayer = random.randint(0,len(players)-1)
     # Destroy the second screen
     frame2.destroy()
     # Grid frame 3 so that it displays
@@ -137,6 +182,10 @@ def dealCards(*args):
     trumpCard = deck[randnum]
     deck.pop(randnum)
 
+def sortCards(trumpCard):
+    for player in players:
+        Player.sortCardsHighFirst(player, trumpCard)
+
 def deletePrevGuesses(*args):
     for c in range(len(prevGuesses)-1, -1, -1):
         prevGuesses[c].destroy
@@ -147,6 +196,14 @@ def outerGameLoop(*args):
     makeCards()
     # Deal Cards
     dealCards()
+    # Sort Cards
+    sortCards(trumpCard)
+    # Set person to start this round
+    global curPlayer
+    global prevStartPlayer
+    curPlayer = prevStartPlayer
+    nextPlayer()
+    prevStartPlayer = curPlayer
     # Change trump card image
     trumpCardImage["image"] = trumpCard.photoImage()
     # Set counter3 to 0
@@ -180,6 +237,7 @@ def nextPlayer(*args):
 def getNumWins(*args):
     global counter3
     global curPlayer
+    global players
     # Put cursor in entrybox
     winEntry.focus()
     # Stop displaying frame 4
@@ -195,8 +253,7 @@ def getNumWins(*args):
     try:
         # Convert value in entry box to an integer
         winsInt = int(getWins.get())
-        Player.guessWin(players[curPlayer], winsInt)
-        # display what previous people have guessed they will win
+        HumanPlayer.guessWin(players[curPlayer], winsInt)
         # Create a new widget to dislay what previous players guessed, and add to the list
         name = Player.name(players[curPlayer])
         prevGuesses.append(ttk.Label(frame3, text = f"Player {name} guessed: " + getWins.get()))
@@ -207,10 +264,11 @@ def getNumWins(*args):
         nextPlayer()
         # Clear the entry box
         winEntry.delete(0, "end")
-        if counter3 == int(numPlayers.get()):
-            innerGameLoop()
+        if counter3 == len(players):
+            afterGetWins()
         # Bring us to pass to screen
-        passTo()
+        else:
+            passTo()
     except(ValueError):
         pass
 
@@ -227,9 +285,200 @@ def passTo(*args):
     # Set button command for after pass
     confirmPlayer["command"] = getNumWins
 
-def innerGameLoop(*args):
-    frame3.destroy()
-    frame4.destroy()
+# Display the trump card
+def DisplayTrump():
+    global trumpCard
+    trumpImage5["image"] = trumpCard.photoImage()
+
+# Display players and their guesses
+def DisplayGuess():
+    for i in range(len(displayGuessesList)-1, -1, -1):
+        displayGuessesList[i].destroy()
+        displayGuessesList.pop(i)
+    for i in range(len(players)):
+        displayGuessesList.append(ttk.Label(frame5, text = f"{players[i].name}'s guess: {players[i].guess} "))
+        displayGuessesList[i].grid(row=0, column=i, sticky=(N, W, E, S))
+
+def afterGetWins(*args):
+    # Destroy the previous frames
+    frame3.grid_remove()
+    frame4.grid_remove()
+    # Display frame 5
+    frame5.grid(row = 0, column = 0)
+    # Display the trump card
+    DisplayTrump()
+    # Display everyone's guess
+    DisplayGuess()
+    # Set prevStart to the person starting this round
+    global prevStart
+    global curPlayer
+    prevStart = curPlayer
+    for i in range(len(players)):
+        Label(frame5, text = f"{players[i].name} played: ").grid(row=2, column=i*2, padx = 5, pady = 5)
+    # First make sure the 1st player is the 1st player
+    passTo5()
+
+#display players and their wins
+def DisplayWins():
+    for i in range(len(displayWinsList)-1, -1, -1):
+        displayWinsList[i].destroy()
+        displayWinsList.pop(i)
+    for i in range(len(players)):
+        displayWinsList.append(ttk.Label(frame5, text = f"{Player.name(players[i])}'s wins {Player.wins(players[i])}:"))
+        displayWinsList[i].grid(row=1, column=i, padx = 5, pady = 5)
+        
+
+#display the players and their picked card
+def DisplayPlayed():
+    for i in range(len(prevPlaysList)-1, -1, -1):
+        prevPlaysList[i].destroy()
+        prevPlaysList.pop(i)
+    for i in range(len(players)):
+        prevPlaysList.append(ttk.Label(frame5, text = f"{players[i].name} played: ").grid(row=2, column=i*2, padx = 5, pady = 5))
+        if Player.hasPicked(players[i]):
+            prevPlaysList.append(ttk.Label(frame5, image = f"{Player.picked(players[i]).photoImage()}").grid(row=2, column=(i*2)+1, padx = 5, pady = 5))
+    
+
+#display the current hand
+def DisplayCurHand():
+    global curPlayer
+    global cardsLeft
+    for i in range(len(cardsLeft)-1, -1, -1):
+        cardsLeft[i].destroy()
+        cardsLeft.pop(i)
+    c = 0
+    for i in Player.cards(players[curPlayer]):
+        cardsLeft.append(Radiobutton(frame5, image = f"{i.photoImage()}", value=c, indicator=0, height = 120, width = 85, variable = cardPicked))
+        cardsLeft[c].grid(row=4, column=c+1, sticky=(N, W, E, S))
+        c += 1
+
+#this function display the widgets and such of frame 5
+def DisplayFrame5(*args):
+    global curPlayer
+    # Put frame 5 on the grid
+    frame5.grid(row = 0, column = 0)
+    # Remove frame 6 from the grid
+    frame6.grid_remove()
+    # Display everyone's wins
+    DisplayWins()
+    # Display what everyone's played
+    DisplayPlayed()
+    # Display Your hand
+    DisplayCurHand()
+    # Remove invalid choiice label from the grid
+    invalidChoice.grid_remove()
+    # Set current player label
+    curPlayerLabel["text"] = f"Current Player: {Player.name(players[curPlayer])}"
+    # Set Enter key to command getCard
+    root.bind('<Return>', getCard)
+
+def validCard(playerCards, pickedCard, startCard, start):
+    global trumpCard
+    global trumpOut
+    if start:
+        if Card.suit(pickedCard) != Card.suit(trumpCard) or trumpOut:
+            return True
+        for card in playerCards:
+            if Card.suit(card) != Card.suit(trumpCard):
+                return False
+        return True
+    if Card.suit(pickedCard) == Card.suit(startCard):
+        return True
+    for card in playerCards:
+        if Card.suit(card) == Card.suit(startCard):
+            return False
+    return True
+
+#get the card selected by the player
+def getCard(*args):
+    global index5
+    global curPlayer
+    global cardsLeft
+    global counterGetCard
+    global startCard
+    try:
+        i = int(cardPicked.get())
+        if counterGetCard == 0:
+            startCard = Player.cards(players[curPlayer])[i]
+        if validCard(Player.cards(players[curPlayer]), Player.cards(players[curPlayer])[i], startCard, counterGetCard == 0):
+            if Card.suit(Player.cards(players[curPlayer])[i]) == Card.suit(trumpCard):
+                global trumpOut
+                trumpOut = True
+            #deselect the card
+            cardsLeft[i].deselect()
+            #put the card in the player's cards stack
+            players[curPlayer].pickCard((Player.cards(players[curPlayer])[i]))
+            #pop the card from the player's deck
+            players[curPlayer].cards.pop(i)
+            #increment curPlayer
+            nextPlayer()
+            counterGetCard += 1
+            if counterGetCard == len(players):
+                resetRound()
+            else:
+                passTo5()
+        else:
+            invalidChoice.grid(row = 3, column = 4, padx = 5, pady = 5)
+    except(ValueError):
+        pass
+
+def win(card1, card2, trumpSuit):
+    if Card.suit(card1) == Card.suit(card2):
+        return Card.value(card1) > Card.value(card2)
+    if Card.suit(card1) == trumpSuit:
+        return True
+    return False
+
+def getWinner(players, trumpSuit):
+    global prevStart
+    winner = prevStart
+    for c in range(len(players)):
+        if win(Player.picked(players[c]), Player.picked(players[winner]), trumpSuit):
+            winner = c
+    global curPlayer
+    curPlayer = winner
+    prevStart = winner
+    Player.addWin(players[winner])
+
+def resetRound(*args):
+    global counterGetCard
+    counterGetCard = 0
+    getWinner(players, Card.suit(trumpCard))
+    for player in players:
+        Player.resetPickedCard(player)
+    if len(Player.cards(players[0])) == 0:
+        for player in players:
+            if Player.guess(player) == Player.wins(player):
+                Player.addScore(player, Player.guess(player) + 10)
+        global trumpOut
+        trumpOut = False
+        outerGameLoop()
+    else:
+        passTo5()
+                
+    
+#make sure the current player is the right player before continuing
+def passTo5():
+    global curPlayer
+    if curPlayer == int(numPlayers.get()):
+        NextScreen()
+    else:
+        # Stop displaying frame 5
+        frame5.grid_remove()
+        # Display frame 6
+        frame6.grid(row = 0, column = 0)
+        #Set name of player in appropriate widgets
+        playerPass6["text"] = "Pass to " + Player.name(players[curPlayer])
+        enter6["text"] = "I am " + Player.name(players[curPlayer])
+        # Set Enter key to command for after pass
+        root.bind('<Return>', DisplayFrame5)
+        # Set button command for after pass
+        enter6["command"] = DisplayFrame5
+
+#test screan for the next part
+def NextScreen():
+    frame5.destroy()
+    frame6.destroy()
 
 # Create a root window to show to the screen and title it Oh Shit
 root = Tk()
@@ -258,6 +507,8 @@ deck = []
 counterGetName = 1
 # Variable to hold current player
 curPlayer = 0
+# Variable to hold who started the previous round
+prevStartPlayer = 0
 # Variable to hold trump card
 trumpCard = Card(0)
 # List to hold the card widgets that are used in frame 3
@@ -266,12 +517,32 @@ cardDisplay = []
 counter3 = 0
 # Create a list for previous players guesses
 prevGuesses = []
+#the card picked in frame 5
+cardPicked = StringVar()
+#index for displaying cards in frame 5
+index5 = 0
+#hold the card buttons in frame 5
+cardsLeft = []
+# Create a counter for getting cards
+counterGetCard = 0
+# List to hold widgets for displaying guesses
+displayGuessesList = []
+# List to hold widgets for displaying wins
+displayWinsList = []
+# List to hold widgets for displaying what the previous players played
+prevPlaysList = []
+# Variable to hold who started the round
+prevStart = 0
+# Variable to hold what card was the starting card
+startCard = Card(0)
+# Variable to hold whether a trump has gone out yet
+trumpOut = False
 
 # Frame1: Get number of players
 frame1 = ttk.Frame(root, padding = "3 3 12 12")
 frame1.grid(column=0, row=0, sticky=(N, W, E, S))
 # Label for number of players
-numlabel = ttk.Label(frame1, text = "Number of Players: ")
+numlabel = ttk.Label(frame1, text = "Number of Players:")
 numlabel.grid(row = 0, column = 0)
 # Number of players entry box
 numEntry = ttk.Entry(frame1, textvariable = numPlayers)
@@ -280,7 +551,7 @@ numEntry.grid(row=0, column=1)
 Enter = ttk.Button(frame1, text = "Enter!", command = checkNumPlayers) 
 Enter.grid(row=1, column=1)
 # Create spacing around each widget
-for child in frame1.winfo_children(): child.grid_configure(padx=5, pady=5, sticky = (N, W, E, S))
+for child in frame1.winfo_children(): child.grid_configure(padx=5, pady=5)
 # State with the cursor in the textbot
 numEntry.focus()
 # Bind return to also bring us to the next screen
@@ -298,7 +569,7 @@ nameEntry.grid(row=0, column=1)
 Enter2 = ttk.Button(frame2, text = "Enter!", command = getPlayerNames) 
 Enter2.grid(row=1, column=1)
 # Spacing around each widget
-for child in frame2.winfo_children(): child.grid_configure(padx=5, pady=5, sticky = (N, W, E, S))
+for child in frame2.winfo_children(): child.grid_configure(padx=5, pady=5)
 
 # Frame3: Get the number of wins for the round
 frame3 = ttk.Frame(root, padding = "3 3 12 12")
@@ -325,7 +596,7 @@ trumpCardLabel.grid(row = 1, column = 2)
 trumpCardImage = ttk.Label(frame3)
 trumpCardImage.grid(row = 1, column = 3)
 # Spacing around each widget
-for child in frame3.winfo_children(): child.grid_configure(padx=5, pady=5, sticky = (N, W, E, S))
+for child in frame3.winfo_children(): child.grid_configure(padx=5, pady=5)
 
 # Frame4: pass to screen
 frame4 = ttk.Frame(root, padding = "3 3 12 12")
@@ -336,4 +607,34 @@ playerPass.grid(row = 0, column = 0)
 # Create button to press
 confirmPlayer = ttk.Button(frame4)
 confirmPlayer.grid(row = 0, column = 1)
-for child in frame4.winfo_children(): child.grid_configure(padx=5, pady=5, sticky = (N, W, E, S))
+for child in frame4.winfo_children(): child.grid_configure(padx=5, pady=5)
+
+#Frame5: Pick cards
+frame5 = ttk.Frame(root, padding = "3 3 12 12")
+# Create the widgets for screen 5:
+# Create button to press
+enter5 = ttk.Button(frame5, text = "Pick this card!", command = getCard)
+enter5.grid(row = 5, column = 0)
+trumpCard5 = ttk.Label(frame5, text = "Trump Card:")
+trumpCard5.grid(row=3, column=0)
+trumpImage5 = ttk.Label(frame5)
+trumpImage5.grid(row=3, column=1)
+yourCards5 = ttk.Label(frame5, text = "Your cards:")
+yourCards5.grid(row=4, column=0)
+curPlayerLabel = ttk.Label(frame5)
+curPlayerLabel.grid(row = 3, column = 2, columnspan = 2)
+invalidChoice = ttk.Label(frame5, text = "Invalid Card, try again")
+for child in frame5.winfo_children(): child.grid_configure(padx=5, pady=5)
+
+#Frame6: Pass to next player
+frame6 = ttk.Frame(root, padding = "3 3 12 12")
+# Create Label to say who to pass to
+playerPass6 = ttk.Label(frame6)
+playerPass6.grid(row = 0, column = 0)
+# Create button to press
+enter6 = ttk.Button(frame6)
+enter6.grid(row = 0, column = 1)
+
+for child in frame6.winfo_children(): child.grid_configure(padx=5, pady=5)
+
+root.mainloop()
