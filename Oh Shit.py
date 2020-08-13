@@ -121,29 +121,36 @@ def checkNumPlayers(*args):
 
 def afterFirstScreen(*args):
     # Set Enter key to appropriate new command
-    root.bind('<Return>', getPlayerNames)
-    # Put cursor into textbox for entry
-    nameEntry.focus()
+    root.bind('<Return>', checkNames)
     # Destroy the first screen
     frame1.destroy()
     # Put frame2 on the grid to display it
     frame2.grid(row = 0, column = 0)
+    getPlayerNames()
 
-def getPlayerNames(*args):
-    if getName.get() != '':
-        global counterGetName
-        playerNames.append(getName.get())
-        if counterGetName == int(numPlayers.get()):
-            afterSecondScreen()
-        else:
-            #clear the entry box
-            nameEntry.delete(0, "end")
-            counterGetName += 1
-            nameLabel.configure(text=f"What's your name, player {counterGetName}?")
+def getPlayerNames():
+    for x in range(int(numPlayers.get())):
+        nameLabelList.append(ttk.Label(frame2, text = f"What is your name player {x+1}?"))
+        nameLabelList[x].grid(row = x, column = 0, padx = 5, pady = 5)
+        nameVariables.append(StringVar())
+        nameEntryList.append(ttk.Entry(frame2, textvariable = nameVariables[x]))
+        nameEntryList[x].grid(row = x, column = 1, padx = 5, pady = 5)
+    nameEntryList[0].focus()
+    Enter2.grid(row = int(numPlayers.get()), column = 0, padx = 5, pady = 5)
+
+def checkNames(*args):
+    check = True
+    for x in range(len(nameVariables)):
+        if nameVariables[x].get() == '':
+            check = False
+            nameEntryList[x].focus()
+            break
+    if check:
+        afterSecondScreen()
 
 def makePlayers(*args):
-    for name in playerNames:
-        players.append(HumanPlayer(name))
+    for name in nameVariables:
+        players.append(HumanPlayer(name.get()))
 
 def afterSecondScreen(*args):
     # Put cursor into textbox for entry
@@ -542,7 +549,6 @@ def sortPlayers():
 
 def displayFinalScores():
     for c in range(len(players)):
-        print(f"{Player.name(players[c])}'s score: {Player.score(players[c])}")
         ttk.Label(frame7, text = f"{Player.name(players[c])}'s score: {Player.score(players[c])}").grid(row = c+1, column = 0)
     for child in frame7.winfo_children(): child.grid_configure(padx=5, pady=5)
     
@@ -560,8 +566,6 @@ root = Tk()
 root.title("Oh Shit")
 
 # Variables:
-# List of players and their names, to be filled in getNames
-playerNames = []
 # List of players and their wins, to be filled in getWins
 wins = []
 # Create a variable to hold the number of players
@@ -578,8 +582,6 @@ players = []
 roundNum = 10
 # Create a list to hold cards for the deck
 deck = []
-# Create a counter for getting names
-counterGetName = 1
 # Variable to hold current player
 curPlayer = 0
 # Variable to hold who started the previous round
@@ -642,15 +644,14 @@ root.bind('<Return>', checkNumPlayers)
 
 # Frame2: Get names of players
 frame2 = ttk.Frame(root, padding = "3 3 12 12")
-# Create text on the screen to ask what the player's name is
-nameLabel = ttk.Label(frame2, text = "What's your name, player 1?")
-nameLabel.grid(row = 0, column = 0)
-# Create an entry box for players to input their name
-nameEntry = ttk.Entry(frame2, textvariable = getName)
-nameEntry.grid(row=0, column=1)
+# List to hold labels
+nameLabelList = []
+# List to hold entries
+nameEntryList = []
+# List to hold name variables
+nameVariables = []
 # Create an "Enter!" button and go to the next screen
-Enter2 = ttk.Button(frame2, text = "Enter!", command = getPlayerNames) 
-Enter2.grid(row=1, column=1)
+Enter2 = ttk.Button(frame2, text = "Enter!", command = checkNames) 
 # Spacing around each widget
 for child in frame2.winfo_children(): child.grid_configure(padx=5, pady=5)
 
