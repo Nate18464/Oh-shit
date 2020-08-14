@@ -358,15 +358,11 @@ def DisplayPlayed():
         prevPlaysList[i].destroy()
         prevPlaysList.pop(i)
     c = 0
-    for i in range(len(players)):
-        prevPlaysList.append(ttk.Label(frame5, text = f"{players[i].name} played: "))
-        prevPlaysList[c].grid(row=4, column=i*2, padx = 5, pady = 5)
-        c += 1
-        if Player.hasPicked(players[i]):
-            prevPlaysList.append(ttk.Label(frame5, image = f"{Player.picked(players[i]).photoImage()}"))
-            prevPlaysList[c].grid(row=4, column=(i*2)+1, padx = 5, pady = 5)
-            c += 1
-    
+    for i in range(len(curRoundCards)):
+        prevPlaysList.append(ttk.Label(frame5, text = f"{curRoundCards[i][0]} played: "))
+        prevPlaysList[2*i].grid(row=4, column=i*2, padx = 5, pady = 5)
+        prevPlaysList.append(ttk.Label(frame5, image = f"{curRoundCards[i][1].photoImage()}"))
+        prevPlaysList[(2*i)+1].grid(row=4, column=(i*2)+1, padx = 5, pady = 5)
 
 #display the current hand
 def DisplayCurHand():
@@ -389,10 +385,10 @@ def deleteLastRound():
 
 def displayLastRound():
     prevRoundLabel.grid(row = 8, column = 0, padx = 5, pady = 5)
-    for i in range(len(players)):
-        prevRoundList.append(ttk.Label(frame5, text = f"{Player.name(players[i])} played:"))
+    for i in range(len(prevRoundCards)):
+        prevRoundList.append(ttk.Label(frame5, text = f"{prevRoundCards[i][0]} played:"))
         prevRoundList[2*i].grid(row = 9, column = 2*i, padx = 5, pady = 5)
-        prevRoundList.append(ttk.Label(frame5, image = Player.picked(players[i]).photoImage()))
+        prevRoundList.append(ttk.Label(frame5, image = f"{prevRoundCards[i][1].photoImage()}"))
         prevRoundList[(2*i)+1].grid(row = 9, column = (2*i)+1, padx = 5, pady = 5)
     
 
@@ -452,8 +448,10 @@ def getCard(*args):
             if Card.suit(Player.cards(players[curPlayer])[i]) == Card.suit(trumpCard):
                 global trumpOut
                 trumpOut = True
-            #deselect the card
+            # Deselect card
             cardsLeft[i].deselect()
+            # Add card played into curRoundCards
+            curRoundCards.append([Player.name(players[curPlayer]), Player.cards(players[curPlayer])[i]])
             #put the card in the player's cards stack
             players[curPlayer].pickCard((Player.cards(players[curPlayer])[i]))
             #pop the card from the player's deck
@@ -499,6 +497,12 @@ def resetRound(*args):
     global notFirstRound
     counterGetCard = 0
     getWinner(players, Card.suit(trumpCard))
+    global curRoundCards
+    global prevRoundCards
+    prevRoundCards = []
+    for card in curRoundCards:
+        prevRoundCards.append(card)
+    curRoundCards = []
     for player in players:
         Player.resetPickedCard(player)
     if noCardsLeft(players):
@@ -622,6 +626,10 @@ guessScoreList = []
 prevRoundList = []
 # Boolean to say if not the round is the first round
 notFirstRound = False
+# List to hold cards played this round
+curRoundCards = []
+# List to hold cards played in the previous round
+prevRoundCards = []
 
 # Frame1: Get number of players
 frame1 = ttk.Frame(root, padding = "3 3 12 12")
